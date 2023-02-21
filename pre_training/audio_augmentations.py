@@ -51,6 +51,15 @@ class Preprocessor:
         plt.show()
 
 
+def random_erase(spectogram):
+    eraser = torchvision.transforms.RandomErasing(p=1, scale=(0.1, 0.2), value=int(spectogram.min()))
+    return eraser(spectogram)
+
+
+def noise_injection(spectogram, std=1.5, mean=0):
+    return spectogram + torch.randn(spectogram.size()) * std + mean
+
+
 def augmentation_gaussian_blur(spectrogram, kernel=3, sigma=(1.0, 2.0)):
     """
     Applies a Gaussian blur transformation to the spectrogram using the given
