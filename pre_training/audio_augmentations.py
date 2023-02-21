@@ -59,20 +59,22 @@ def main():
     spects = prep.get_next_n_spectrograms(num=1)
     mel = spects[0]
     min_value = np.min(mel)
-    input_length_msecs = 2048 // (512 * 1000 // 16000)
-    # append input_length_msecs//2 cols with zeros to mel
+    input_length_msecs = 229
     mel = np.pad(mel, ((0, 0), (input_length_msecs // 2, 0)), "constant", constant_values=min_value)
     inputs = []
     for i in range(mel.shape[1] - input_length_msecs):
         inputs.append(mel[:, i : i + input_length_msecs])
 
-    spec1 = torch.tensor(inputs[200])
-    spec2 = torch.tensor(inputs[200])
+    print(f"max: {np.array(inputs).max()}")
+    print(f"min: {np.array(inputs).min()}")
 
-    # TODO: Apply augmentation
+    spec1 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
+    spec2 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
 
-    spec1 = np.array(spec1)
-    spec2 = np.array(spec2)
+    # TODO: Apply augmentation here
+
+    spec1 = np.array(spec1).reshape((229, 229))
+    spec2 = np.array(spec2).reshape((229, 229))
 
     fig, (axs1, axs2) = plt.subplots(1, 2)
     fig.set_figheight(5)
