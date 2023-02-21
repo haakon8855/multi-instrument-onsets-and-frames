@@ -56,6 +56,10 @@ def random_erase(spectogram):
     return eraser(spectogram)
 
 
+def noise_injection(spectogram, std=1.5, mean=0):
+    return spectogram + torch.randn(spectogram.size()) * std + mean
+
+
 def main():
     """
     Main function for running this python script.
@@ -77,7 +81,7 @@ def main():
     min_value = np.array(spec2).min()
 
     # TODO: Apply augmentation
-    spec2 = random_erase(spec2)
+    spec2 = noise_injection(spec2)
 
     spec1 = np.array(spec1).reshape((229, 229))
     spec2 = np.array(spec2).reshape((229, 229))
