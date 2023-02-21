@@ -51,6 +51,16 @@ class Preprocessor:
         plt.show()
 
 
+def augmentation_gaussian_blur(spectrogram, kernel=3, sigma=(1.0, 2.0)):
+    """
+    Applies a Gaussian blur transformation to the spectrogram using the given
+    kernel size and range for a randomly selected standard deviation.
+    """
+    augmentation = torchvision.transforms.GaussianBlur(kernel, sigma)
+    spectrogram = augmentation(spectrogram)
+    return spectrogram
+
+
 def main():
     """
     Main function for running this python script.
@@ -71,7 +81,7 @@ def main():
     spec1 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
     spec2 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
 
-    # TODO: Apply augmentation here
+    spec2 = augmentation_gaussian_blur(spec2)
 
     spec1 = np.array(spec1).reshape((229, 229))
     spec2 = np.array(spec2).reshape((229, 229))
