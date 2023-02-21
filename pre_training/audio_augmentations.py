@@ -83,6 +83,18 @@ def augmentation_random_pitch_shift(spectrogram, shift_n_bins_range=(-12, 12)):
     return augmentation_pitch_shift(spectrogram, shift_n_bins=shift)
 
 
+def augmentation_random_crop_and_stretch(spectrogram, cols_to_crop_range=(20, 50)):
+    """
+    Crops the image in the horizontal axis (removes columns on each side) and
+    stretches the image back to its original size.
+    """
+    crop_cols = np.random.randint(cols_to_crop_range[0], cols_to_crop_range[1])
+    orig_shape = spectrogram.shape
+    spectrogram = spectrogram[:, :, :, crop_cols:-crop_cols]
+    resizer = torchvision.transforms.Resize(orig_shape[2:])
+    return resizer(spectrogram)
+
+
 def main():
     """
     Main function for running this python script.
@@ -97,13 +109,10 @@ def main():
     for i in range(mel.shape[1] - input_length_msecs):
         inputs.append(mel[:, i : i + input_length_msecs])
 
-    print(f"max: {np.array(inputs).max()}")
-    print(f"min: {np.array(inputs).min()}")
-
     spec1 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
     spec2 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
 
-    spec2 = augmentation_random_pitch_shift(spec2)
+    spec2 = augmentation_random_crop_and_stretch(spec2)
 
     spec1 = np.array(spec1).reshape((229, 229))
     spec2 = np.array(spec2).reshape((229, 229))
