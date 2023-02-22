@@ -6,7 +6,7 @@ import torchvision
 
 class Encoder(nn.Module):
     """
-    Class contaning the Simple Siamese network.
+    Class contaning an encoder for the Simple Siamese network.
     """
 
     def __init__(self):
