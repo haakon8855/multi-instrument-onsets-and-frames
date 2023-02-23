@@ -4,6 +4,12 @@ import numpy as np
 
 
 class Augment:
+    """
+    Class containing augmentations applicable to spectrograms.
+    Augmentations to consider:
+        - Changing the power of the spectrogram
+    """
+
     @staticmethod
     def random_erase(spectogram):
         """
