@@ -1,13 +1,15 @@
 import os
 import glob
 import torch
-import librosa
-import librosa.display
+import soundfile
+from torchaudio.transforms import MelSpectrogram
+from math import exp, log
 
 import matplotlib.pyplot as plt
 import numpy as np
 
 from augment import Augment
+import constants
 
 
 class Preprocessor:
@@ -16,6 +18,24 @@ class Preprocessor:
         self.file_paths = os.listdir(data_path)
         self.file_paths = glob.glob(data_path + "*.flac")
         self.last_index = -1
+        self.window_length = constants.WINDOW_LENGTH
+        self._mel_clamp_value = exp(-log(self.window_length))
+        self.melspectrogram = MelSpectrogram(
+            sample_rate=constants.SAMPLE_RATE,
+            n_fft=self.window_length,
+            win_length=self.window_length,
+            hop_length=constants.HOP_LENGTH,
+            power=1.0,
+            f_min=constants.MEL_FMIN,
+            f_max=constants.MEL_FMAX,
+            n_mels=constants.N_MELS,
+        )
+
+    def mel(self, wav: torch.tensor) -> torch.tensor:
+        mel_output = self.melspectrogram(wav)
+        # mel_output = self.melspectrogram(wav.reshape(-1, wav.shape[-1])[:, :-1]).transpose(-1, -2)
+        mel_output = torch.log(torch.clamp(mel_output, min=self._mel_clamp_value))
+        return mel_output
 
     def get_next_n_spectrograms(self, num: int = 1):
         spectrograms = []
@@ -23,33 +43,10 @@ class Preprocessor:
         files = self.file_paths[first_index : first_index + num]
         for filename in files:
             full_path = filename
-            spectrograms.append(Preprocessor.get_mel_spectrogram(full_path))
+            audio = torch.tensor(soundfile.read(full_path, start=0, dtype="float32", frames=-1)[0])  # .to(self.device)
+            spectrograms.append(self.mel(audio))
         self.last_index += num
         return spectrograms
-
-    @staticmethod
-    def get_mel_spectrogram(
-        audio_file_path: str,
-        sample_rate: int = 16000,
-        hop_length: int = 512,
-        win_length: int = 2048,
-        n_fft: int = 2048,
-        fmin: int = 30,
-        fmax: int = 8000,
-        n_mels: int = 229,
-    ) -> np.ndarray:
-        x, sr = librosa.load(audio_file_path, sr=sample_rate)
-        mel = librosa.feature.melspectrogram(
-            y=x, sr=sr, hop_length=hop_length, win_length=win_length, n_fft=n_fft, fmin=fmin, fmax=fmax, n_mels=n_mels
-        )
-        return librosa.power_to_db(abs(mel))
-
-    @staticmethod
-    def display_spectrogram(spectrogram):
-        plt.figure(figsize=(14, 5))
-        librosa.display.specshow(np.squeeze(spectrogram), sr=16000, fmax=8000, fmin=30, x_axis="time", y_axis="mel")
-        plt.colorbar()
-        plt.show()
 
 
 def main():
@@ -58,27 +55,24 @@ def main():
     """
     prep = Preprocessor("./data/slakh2100_flac_16k/test/Track01877/")
     spects = prep.get_next_n_spectrograms(num=1)
-    mel = spects[0]
-    min_value = np.min(mel)
     input_length_msecs = 229
-    mel = np.pad(mel, ((0, 0), (input_length_msecs // 2, 0)), "constant", constant_values=min_value)
-    inputs = []
-    for i in range(mel.shape[1] - input_length_msecs):
-        inputs.append(mel[:, i : i + input_length_msecs])
+    start = 400
+    spec1 = spects[0][:, start : start + input_length_msecs]
+    spec2 = spec1
 
-    spec1 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
-    spec2 = torch.tensor(inputs[200]).reshape((1, 1, 229, 229))
+    spec1 = torch.tensor(spec1).reshape((1, 1, 229, input_length_msecs))
+    spec2 = torch.tensor(spec2).reshape((1, 1, 229, input_length_msecs))
 
     spec2 = Augment.gaussian_blur(spec2)
 
-    spec1 = np.array(spec1).reshape((229, 229))
-    spec2 = np.array(spec2).reshape((229, 229))
+    spec1 = np.array(spec1).reshape((229, input_length_msecs))
+    spec2 = np.array(spec2).reshape((229, input_length_msecs))
 
     fig, (axs1, axs2) = plt.subplots(1, 2)
     fig.set_figheight(5)
     fig.set_figwidth(15)
-    librosa.display.specshow(spec1, sr=16000, fmax=8000, fmin=30, x_axis="time", y_axis="mel", cmap="inferno", ax=axs1)
-    librosa.display.specshow(spec2, sr=16000, fmax=8000, fmin=30, x_axis="time", y_axis="mel", cmap="inferno", ax=axs2)
+    axs1.imshow(spec1, cmap="inferno")
+    axs2.imshow(spec2, cmap="inferno")
     plt.show()
 
 
