@@ -8,6 +8,9 @@ class Augment:
     Class containing augmentations applicable to spectrograms.
     Augmentations to consider:
         - Changing the power of the spectrogram
+        - Subtract noise?
+        - Maybe remove pitch-shift
+        - Delete random pixels
     """
 
     @staticmethod
