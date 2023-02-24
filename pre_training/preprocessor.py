@@ -32,8 +32,7 @@ class Preprocessor:
         )
 
     def mel(self, wav: torch.tensor) -> torch.tensor:
-        mel_output = self.melspectrogram(wav)
-        # mel_output = self.melspectrogram(wav.reshape(-1, wav.shape[-1])[:, :-1]).transpose(-1, -2)
+        mel_output = self.melspectrogram(wav.reshape(-1, wav.shape[-1])[:, :-1]).transpose(-1, -2)
         mel_output = torch.log(torch.clamp(mel_output, min=self._mel_clamp_value))
         return mel_output
 
