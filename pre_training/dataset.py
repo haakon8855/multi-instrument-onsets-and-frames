@@ -9,11 +9,13 @@ import torch
 import torchaudio
 from torch.utils.data import Dataset
 
-from .constants import (
+from constants import (
     DEFAULT_DEVICE,
     HOP_LENGTH,
     SAMPLE_RATE,
 )
+
+torchaudio.set_audio_backend("soundfile")
 
 
 class Audio(NamedTuple):
@@ -26,13 +28,16 @@ class Audio(NamedTuple):
 
 
 def load_audio(paths: List[str], frame_offset: int = 0, num_frames: int = -1, normalize: bool = False) -> torch.Tensor:
-    audio = torchaudio.load(paths[0], frame_offset=frame_offset, num_frames=num_frames, normalize=normalize)[0]
-    for path in paths[1:]:
-        audio += torchaudio.load(path, frame_offset=frame_offset, num_frames=num_frames, normalize=normalize)[0]
+    audio = torchaudio.load(paths, frame_offset=frame_offset, num_frames=num_frames, normalize=normalize, format="mp3")[
+        0
+    ]
     if audio.dtype == torch.float32 and len(audio.shape) == 2 and audio.shape[0] == 1:
         audio.squeeze_()
     else:
         raise RuntimeError(f"Unsupported tensor shape f{audio.shape} of type f{audio.dtype}")
+    # TODO: Check that all files in MTG-Jamendo are at 44100 kHz sample rate
+    resampler = torchaudio.transforms.Resample(orig_freq=44100, new_freq=16000)
+    audio = resampler(audio)
     return audio
 
 
@@ -143,10 +148,8 @@ class MTGJamendo(UnlabbeledAudioDataset):
     def __init__(
         self,
         path: str,
-        split: str,
-        audio: str,
         groups=None,
-        sequence_length=None,
+        sequence_length=327680,
         seed=42,
         device=DEFAULT_DEVICE,
         num_files=None,
@@ -154,8 +157,6 @@ class MTGJamendo(UnlabbeledAudioDataset):
         reproducable_load_sequences=False,
         skip_missing_tracks=False,
     ):
-        self.split = split
-        self.audio = audio
         self.skip_missing_tracks = skip_missing_tracks
         super().__init__(
             path,

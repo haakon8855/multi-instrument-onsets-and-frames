@@ -3,9 +3,11 @@
 import torch
 import numpy as np
 from augment import Augment
+from torch.utils.data import DataLoader
 
 # from siamese_network import SiameseNetwork
 from simsiam import SimSiam
+from dataset import MTGJamendo
 
 
 class PreTrainer:
@@ -73,15 +75,18 @@ def main():
     """
     Main function for running this python script.
     """
-    device = torch.device("cuda:0")
+    device = torch.device("cpu")
 
     cuda_avail = torch.cuda.is_available()
     print(f"Cuda: {torch.cuda.is_available()}")
     if cuda_avail:
         print(f"Device: {torch.cuda.get_device_name(0)}")
 
+    dataset = MTGJamendo(path="data/mtg-small/", device=device)
+    loader = DataLoader(dataset, batch_size=64, shuffle=True)
+
     pre_trainer = PreTrainer(device)
-    pre_trainer.train(None, epochs=1)
+    pre_trainer.train(loader, epochs=1)
     pre_trainer.save("/pre_training/sim_siam_encoder.pt")
 
 
