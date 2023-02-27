@@ -14,3 +14,5 @@ tmp/
 
 pretrained_models/
 .venv*/
+
+*.pt
