@@ -4,10 +4,12 @@ import torch
 import numpy as np
 from augment import Augment
 from torch.utils.data import DataLoader
+from time import time
 
 # from siamese_network import SiameseNetwork
 from simsiam import SimSiam
 from dataset import MTGJamendo
+from preprocessor import Preprocessor
 
 
 class PreTrainer:
@@ -16,7 +18,10 @@ class PreTrainer:
     """
 
     def __init__(self, device):
+        self.device = device
         self.simsiam = SimSiam(device)
+        self.preprocessor = Preprocessor(device)
+        self.augmenter = Augment(device)
 
     def train(self, training_loader, epochs=10):
         optimizer = torch.optim.SGD(
@@ -27,13 +32,18 @@ class PreTrainer:
         )
         report_interval = 10
         for i in range(epochs):
+            time1 = time()
             self.simsiam.train()
             running_loss = 0
+            epoch_loss = 0
+            counter = 0
             last_loss = 0
-            for j, (data, _) in enumerate(training_loader):
+            for j, data in enumerate(training_loader):
+                audio = data.audio
+                audio = self.preprocessor.mel(audio)
                 optimizer.zero_grad()
-                x1, augmentation = PreTrainer.rand_augment(data)
-                x2, _ = PreTrainer.rand_augment(data, avoid_augmentation=augmentation)
+                x1, augmentation = self.rand_augment(audio)
+                x2, _ = self.rand_augment(audio, avoid_augmentation=augmentation)
 
                 p1, p2, z1, z2 = self.simsiam(x1, x2)
 
@@ -43,10 +53,15 @@ class PreTrainer:
                 optimizer.step()
 
                 running_loss += loss.item()
+                epoch_loss += loss.item()
+                counter += 1
                 if (j + 1) % report_interval == 0:
                     last_loss = running_loss / report_interval
                     print(f"Batch {j+1} Loss: {last_loss}")
                     running_loss = 0
+            epoch_loss = epoch_loss / counter
+            time2 = time()
+            print(f"Epoch {i+1} Loss: {epoch_loss}, Time: {time2-time1}")
 
     def save(self, path: str):
         self.simsiam.save(path)
@@ -55,14 +70,13 @@ class PreTrainer:
     def cos_sim(p, z):
         return torch.nn.CosineSimilarity(dim=1)(p, z)
 
-    @staticmethod
-    def rand_augment(data, avoid_augmentation=None):
+    def rand_augment(self, data, avoid_augmentation=None):
         augmentations = [
-            Augment.random_erase,
-            Augment.noise_injection,
-            Augment.gaussian_blur,
-            Augment.random_pitch_shift,
-            Augment.random_crop_and_stretch,
+            self.augmenter.random_erase,
+            self.augmenter.noise_injection,
+            self.augmenter.gaussian_blur,
+            # self.augmenter.random_pitch_shift,
+            self.augmenter.random_crop_and_stretch,
         ]
         if avoid_augmentation is not None:
             augmentations.remove(avoid_augmentation)
@@ -75,7 +89,7 @@ def main():
     """
     Main function for running this python script.
     """
-    device = torch.device("cpu")
+    device = torch.device("cuda")
 
     cuda_avail = torch.cuda.is_available()
     print(f"Cuda: {torch.cuda.is_available()}")
@@ -83,11 +97,11 @@ def main():
         print(f"Device: {torch.cuda.get_device_name(0)}")
 
     dataset = MTGJamendo(path="data/mtg-small/", device=device)
-    loader = DataLoader(dataset, batch_size=64, shuffle=True)
+    loader = DataLoader(dataset, batch_size=30, shuffle=True, num_workers=0)
 
     pre_trainer = PreTrainer(device)
-    pre_trainer.train(loader, epochs=1)
-    pre_trainer.save("/pre_training/sim_siam_encoder.pt")
+    pre_trainer.train(loader, epochs=10)
+    pre_trainer.save("pre_training/sim_siam_encoder.pt")
 
 
 if __name__ == "__main__":

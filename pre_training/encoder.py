@@ -1,5 +1,6 @@
 """haakoas, matsjno"""
 
+import torch
 from torch import nn
 import torchvision
 
@@ -13,9 +14,14 @@ class Encoder(nn.Module):
         super().__init__()
         self.network = nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1)
         self.resnet = torchvision.models.resnet18()
+        self.upscaler = nn.Linear(1000, 640 * 229)
 
     def forward(self, x):
         x = x[:, None, :, :]  # Add empty dimension to act as number of channels
         x = self.network(x)  # Expand number of channels to 3
         x = self.resnet(x)
+        x = self.upscaler(x)
         return x
+
+    def save(self, path: str):
+        torch.save(self.state_dict(), path)

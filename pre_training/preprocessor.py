@@ -1,11 +1,9 @@
-import os
-import glob
 import torch
 import soundfile
 from torchaudio.transforms import MelSpectrogram
 from math import exp, log
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import numpy as np
 
 from augment import Augment
@@ -13,11 +11,7 @@ import constants
 
 
 class Preprocessor:
-    def __init__(self, data_path: str) -> None:
-        self.data_path = data_path
-        self.file_paths = os.listdir(data_path)
-        self.file_paths = glob.glob(data_path + "*.flac")
-        self.last_index = -1
+    def __init__(self, device) -> None:
         self.window_length = constants.WINDOW_LENGTH
         self._mel_clamp_value = exp(-log(self.window_length))
         self.melspectrogram = MelSpectrogram(
@@ -29,7 +23,7 @@ class Preprocessor:
             f_min=constants.MEL_FMIN,
             f_max=constants.MEL_FMAX,
             n_mels=constants.N_MELS,
-        )
+        ).to(device)
 
     def mel(self, wav: torch.tensor) -> torch.tensor:
         mel_output = self.melspectrogram(wav.reshape(-1, wav.shape[-1])[:, :-1]).transpose(-1, -2)
@@ -67,12 +61,12 @@ def main():
     spec1 = np.array(spec1).reshape((229, input_length_msecs))
     spec2 = np.array(spec2).reshape((229, input_length_msecs))
 
-    fig, (axs1, axs2) = plt.subplots(1, 2)
-    fig.set_figheight(5)
-    fig.set_figwidth(15)
-    axs1.imshow(spec1, cmap="inferno")
-    axs2.imshow(spec2, cmap="inferno")
-    plt.show()
+    # fig, (axs1, axs2) = plt.subplots(1, 2)
+    # fig.set_figheight(5)
+    # fig.set_figwidth(15)
+    # axs1.imshow(spec1, cmap="inferno")
+    # axs2.imshow(spec2, cmap="inferno")
+    # plt.show()
 
 
 if __name__ == "__main__":

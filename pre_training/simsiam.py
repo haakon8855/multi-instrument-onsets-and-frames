@@ -13,7 +13,7 @@ class SimSiam(nn.Module):
 
     def __init__(self, device):
         super().__init__()
-        self.output_size = 28 * 28
+        self.output_size = 640 * 229
         self.predictor_hidden_size = 512
         self.encoder = Encoder().to(device)
         self.predictor = nn.Sequential(
@@ -27,7 +27,7 @@ class SimSiam(nn.Module):
     def forward(self, x1, x2):
         z1, z2 = self.encoder(x1), self.encoder(x2)
         p1, p2 = self.predictor(z1), self.predictor(z2)
-        return p1, p2, z1.detatch(), z2.detatch()
+        return p1, p2, z1.detach(), z2.detach()
 
     def save(self, path: str):
         self.encoder.save(path)
