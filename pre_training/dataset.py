@@ -15,7 +15,8 @@ from constants import (
     SAMPLE_RATE,
 )
 
-torchaudio.set_audio_backend("soundfile")
+# torchaudio.set_audio_backend("soundfile")
+torchaudio.set_audio_backend("sox_io")
 
 
 class Audio(NamedTuple):
@@ -82,12 +83,10 @@ class UnlabbeledAudioDataset(Dataset):
         if index < self.max_files_in_memory:
             audio = self.audios[index]
 
-            # The first time the audio needs to be loaded in memory
-            if audio is None:
-                audio = load_audio(audio_path, normalize=False)
-                self.audios[index] = audio
-
-        audio_length = torchaudio.info(audio_path[0]).num_frames
+        if audio is not None:
+            audio_length = audio.shape[0]
+        else:
+            audio_length = (torchaudio.info(audio_path).num_frames // 44100) * 16000
         start_frame = None
         end_frame = None
         if self.sequence_length is not None:
