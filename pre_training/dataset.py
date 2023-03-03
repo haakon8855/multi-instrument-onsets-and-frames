@@ -86,7 +86,7 @@ class UnlabbeledAudioDataset(Dataset):
         if audio is not None:
             audio_length = audio.shape[0]
         else:
-            audio_length = (torchaudio.info(audio_path).num_frames // 44100) * 16000
+            audio_length = torchaudio.info(audio_path).num_frames
         start_frame = None
         end_frame = None
         if self.sequence_length is not None:
@@ -144,7 +144,7 @@ class MTGJamendo(UnlabbeledAudioDataset):
         self,
         path: str,
         groups=None,
-        sequence_length=327680,
+        sequence_length=int((327680 / 16000) * 44100),
         seed=42,
         device=DEFAULT_DEVICE,
         num_files=None,

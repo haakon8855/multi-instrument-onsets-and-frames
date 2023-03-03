@@ -60,13 +60,14 @@ class Augment:
         shift = np.random.choice(possible_shifts, 1)
         return self.pitch_shift(spectrogram, shift_n_bins=shift)
 
-    def random_crop_and_stretch(self, spectrogram, cols_to_crop_range=(20, 50)):
+    def random_crop_and_stretch(self, spectrogram, rows_to_crop_range=(20, 50)):
         """
         Crops the image in the horizontal axis (removes columns on each side) and
         stretches the image back to its original size.
         """
-        crop_cols = np.random.randint(cols_to_crop_range[0], cols_to_crop_range[1])
+        crop_rows = np.random.randint(rows_to_crop_range[0], rows_to_crop_range[1])
         orig_shape = spectrogram.shape
-        spectrogram = spectrogram[:, :, crop_cols:-crop_cols]
-        resizer = torchvision.transforms.Resize(orig_shape[2:])
-        return resizer(spectrogram)
+        spectrogram = spectrogram[:, crop_rows:-crop_rows, :]
+        resizer = torchvision.transforms.Resize(orig_shape[1:])
+        spectrogram = resizer(spectrogram)
+        return spectrogram

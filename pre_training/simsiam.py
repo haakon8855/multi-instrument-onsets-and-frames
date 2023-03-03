@@ -3,8 +3,6 @@
 from torch import nn
 
 from encoder import Encoder
-from torchsummary import summary
-import torch
 
 
 class SimSiam(nn.Module):
@@ -27,9 +25,7 @@ class SimSiam(nn.Module):
             nn.ConvTranspose2d(128, 64, kernel_size=(5, 5), stride=2, padding=(0, 0)),
             nn.ConvTranspose2d(64, 32, kernel_size=(6, 5), stride=2, padding=(0, 0)),
             nn.ConvTranspose2d(32, 1, kernel_size=(6, 5), stride=2, padding=(0, 0)),
-            nn.Flatten(),
         ).to(device)
-        summary(self.predictor, (1, 640, 229))
 
     def forward(self, x1, x2):
         z1, z2 = self.encoder(x1), self.encoder(x2)

@@ -6,7 +6,6 @@ from augment import Augment
 from torch.utils.data import DataLoader
 from time import time
 
-# from siamese_network import SiameseNetwork
 from simsiam import SimSiam
 from dataset import MTGJamendo
 from preprocessor import Preprocessor
@@ -103,7 +102,7 @@ def main():
         print(f"Device: {torch.cuda.get_device_name(0)}")
 
     dataset = MTGJamendo(path="data/mtg-jamendo/", device=device)
-    loader = DataLoader(dataset, batch_size=30, shuffle=True, num_workers=10)
+    loader = DataLoader(dataset, batch_size=32, shuffle=True, num_workers=10)
 
     pre_trainer = PreTrainer(device)
     pre_trainer.train(loader, epochs=100)
