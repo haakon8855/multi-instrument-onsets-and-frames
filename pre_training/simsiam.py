@@ -3,6 +3,8 @@
 from torch import nn
 
 from encoder import Encoder
+from torchsummary import summary
+import torch
 
 
 class SimSiam(nn.Module):
@@ -17,12 +19,17 @@ class SimSiam(nn.Module):
         self.predictor_hidden_size = 512
         self.encoder = Encoder().to(device)
         self.predictor = nn.Sequential(
-            # Two fully connected layers creating a bottleneck
-            nn.Linear(self.output_size, self.predictor_hidden_size),
-            nn.BatchNorm1d(self.predictor_hidden_size),
-            nn.ReLU(),
-            nn.Linear(self.predictor_hidden_size, self.output_size),
+            nn.Conv2d(1, 32, kernel_size=5, stride=2),
+            nn.Conv2d(32, 64, kernel_size=5, stride=2),
+            nn.Conv2d(64, 128, kernel_size=5, stride=2),
+            nn.Conv2d(128, 256, kernel_size=5, stride=2),
+            nn.ConvTranspose2d(256, 128, kernel_size=(5, 6), stride=2, padding=(0, 0)),
+            nn.ConvTranspose2d(128, 64, kernel_size=(5, 5), stride=2, padding=(0, 0)),
+            nn.ConvTranspose2d(64, 32, kernel_size=(6, 5), stride=2, padding=(0, 0)),
+            nn.ConvTranspose2d(32, 1, kernel_size=(6, 5), stride=2, padding=(0, 0)),
+            nn.Flatten(),
         ).to(device)
+        summary(self.predictor, (1, 640, 229))
 
     def forward(self, x1, x2):
         z1, z2 = self.encoder(x1), self.encoder(x2)
