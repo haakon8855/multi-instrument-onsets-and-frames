@@ -104,19 +104,15 @@ class UnlabbeledAudioDataset(Dataset):
             num_frames = end - begin
 
             if audio is None:
-                audio = load_audio(audio_path, frame_offset=begin, num_frames=num_frames, normalize=False).to(
-                    self.device
-                )
+                audio = load_audio(audio_path, frame_offset=begin, num_frames=num_frames, normalize=False)
             else:
-                audio = audio[begin:end].to(self.device)
+                audio = audio[begin:end]
             start_frame = begin
             end_frame = end
 
         else:
             if audio is None:
-                audio = load_audio(audio_path, normalize=False).to(self.device)
-            else:
-                audio = audio.to(self.device)
+                audio = load_audio(audio_path, normalize=False)
 
             start_frame = 0
             end_frame = audio_length

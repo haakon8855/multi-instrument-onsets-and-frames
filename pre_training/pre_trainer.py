@@ -38,8 +38,11 @@ class PreTrainer:
             epoch_loss = 0
             counter = 0
             last_loss = 0
+            time5 = time()
             for j, data in enumerate(training_loader):
-                audio = data.audio
+                time4 = time()
+                print(f"Time: {time4-time5}")
+                audio = data.audio.to(self.device)
                 audio = self.preprocessor.mel(audio)
                 optimizer.zero_grad()
                 x1, augmentation = self.rand_augment(audio)
@@ -59,9 +62,12 @@ class PreTrainer:
                     last_loss = running_loss / report_interval
                     print(f"Batch {j+1} Loss: {last_loss}")
                     running_loss = 0
+                time5 = time()
             epoch_loss = epoch_loss / counter
             time2 = time()
             print(f"Epoch {i+1} Loss: {epoch_loss}, Time: {time2-time1}")
+            if (i + 1) % 5 == 0:
+                self.save(f"pre_training/checkpoints/sim_siam_encoder_{i+1}.pt")
 
     def save(self, path: str):
         self.simsiam.save(path)
@@ -96,12 +102,11 @@ def main():
     if cuda_avail:
         print(f"Device: {torch.cuda.get_device_name(0)}")
 
-    dataset = MTGJamendo(path="data/mtg-small/", device=device)
-    loader = DataLoader(dataset, batch_size=30, shuffle=True, num_workers=0)
+    dataset = MTGJamendo(path="data/mtg-jamendo/", device=device)
+    loader = DataLoader(dataset, batch_size=30, shuffle=True, num_workers=10)
 
     pre_trainer = PreTrainer(device)
-    pre_trainer.train(loader, epochs=10)
-    pre_trainer.save("pre_training/sim_siam_encoder.pt")
+    pre_trainer.train(loader, epochs=100)
 
 
 if __name__ == "__main__":
