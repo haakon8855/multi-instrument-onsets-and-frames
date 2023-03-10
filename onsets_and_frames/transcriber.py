@@ -24,6 +24,8 @@ from onsets_and_frames.constants import (
 from onsets_and_frames.data_classes import MusicAnnotation
 from onsets_and_frames.dataset import AudioAndLabels
 
+from pre_training.encoder import Encoder
+
 from .lstm import BiLSTM
 from .unet import UNet
 
@@ -73,6 +75,9 @@ class OnsetsAndFrames(nn.Module):
         predict_velocity=False,
         feed_velocity_to_onset=False,
         add_unet_model=False,
+        add_encoder_model=False,
+        encoder_model_path=None,
+        freeze_encoder=False,
         min_midi=MIN_MIDI,
         max_midi=MAX_MIDI,
         hop_length=HOP_LENGTH,
@@ -84,6 +89,9 @@ class OnsetsAndFrames(nn.Module):
         self.predict_velocity = predict_velocity
         self.feed_velocity_to_onset = feed_velocity_to_onset
         self.add_unet_model = add_unet_model
+        self.add_encoder_model = add_encoder_model
+        self.encoder_model_path = encoder_model_path
+        self.freeze_encoder = freeze_encoder
         self.min_midi = min_midi
         self.max_midi = max_midi
         self.hop_length = hop_length
@@ -112,6 +120,13 @@ class OnsetsAndFrames(nn.Module):
 
         if self.add_unet_model:
             self.unet = UNet(in_channels=1)
+
+        if self.add_encoder_model and self.encoder_model_path is not None:
+            self.encoder = Encoder()
+            self.encoder.load_state_dict(torch.load(self.encoder_model_path))
+            if self.freeze_encoder:
+                self.encoder.eval()
+                self.encoder.requires_grad_(False)
 
         def sequence_model(input_size: int, output_size: int):
             return BiLSTM(input_size, output_size // 2)
@@ -159,6 +174,9 @@ class OnsetsAndFrames(nn.Module):
             if prev_length % 64 != 0:
                 mel = mel[:, :, :prev_length, :]
             mel = mel.squeeze(1)
+        if self.add_encoder_model:
+            print(f"Input shape: {mel.shape}")
+            mel = self.encoder(mel)
         if self.predict_velocity:
             velocity_pred = self.velocity_stack(mel)
         else:

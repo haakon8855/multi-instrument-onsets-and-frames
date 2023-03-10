@@ -24,18 +24,18 @@ ex = Experiment("train_transcriber")
 @ex.config
 def config():
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    iterations = 2
+    iterations = 50000
     resume_iteration = None
     checkpoint_interval = 1000
     dataset = "Slakh"
     path = "data/slakh2100_flac_16k"
     split = "redux"
-    audio = "individual"
+    audio = "mix.flac"
     instrument = "electric-bass"
     midi_programs = None
-    max_harmony = None
+    max_harmony = 2
     skip_pitch_bend_tracks = True
-    experiment = None
+    experiment = "p1a"
 
     experiment_name = experiment + "-" if experiment else ""
     logdir = f"runs/{experiment_name}{instrument}-{audio.replace(os.sep, '-')}-transcriber-" + datetime.now().strftime(
@@ -44,7 +44,7 @@ def config():
 
     batch_size = 8
     sequence_length = 327680
-    model_complexity = 2
+    model_complexity = 48
 
     if torch.cuda.is_available() and torch.cuda.get_device_properties(torch.cuda.current_device()).total_memory < 10e9:
         batch_size //= 2
@@ -67,8 +67,8 @@ def config():
     predict_velocity = False
     feed_velocity_to_onset = False
     add_unet_model = False
-    min_midi = MIN_MIDI
-    max_midi = MAX_MIDI
+    min_midi = 36  # MIN_MIDI
+    max_midi = 67  # MAX_MIDI
     n_mels = N_MELS
 
     ex.observers.append(FileStorageObserver.create(logdir))
@@ -161,6 +161,9 @@ def train(
             predict_velocity=predict_velocity,
             feed_velocity_to_onset=feed_velocity_to_onset,
             add_unet_model=add_unet_model,
+            add_encoder_model=True,
+            encoder_model_path="pre_trainer/checkpoints/sim_siam_encoder_100.pt",
+            freeze_encoder=False,
             min_midi=min_midi,
             max_midi=max_midi,
         ).to(device)
