@@ -42,6 +42,8 @@ class Labels(NamedTuple):
 def get_instruments_from_names(names):
     if names == "bass":
         return list(range(32, 37))
+    if names == "piano":
+        return list(range(21, 108))
     if names == "other":
         return list(range(0, 112))
     raise RuntimeError()
@@ -88,7 +90,8 @@ class PianoRollAudioDataset(Dataset):
 
             # The first time the audio needs to be loaded in memory
             if audio is None:
-                audio = torch.tensor(soundfile.read(audio_path, dtype="float32")[0])
+                audio = torch.tensor(
+                    soundfile.read(audio_path, dtype="float32")[0])
                 self.audios[index] = audio
 
         labels: Labels = self.labels[index]
@@ -101,7 +104,9 @@ class PianoRollAudioDataset(Dataset):
             audio_length = torchaudio.info(audio_path).num_frames
             possible_start_interval = audio_length - self.sequence_length
             if self.reproducable_load_sequences:
-                step_begin = int(hashlib.sha256(audio_path.encode("utf-8")).hexdigest(), 16) % possible_start_interval
+                step_begin = int(
+                    hashlib.sha256(audio_path.encode("utf-8")).hexdigest(),
+                    16) % possible_start_interval
             else:
                 step_begin = self.random.randint(possible_start_interval)
             step_begin //= HOP_LENGTH
@@ -115,9 +120,11 @@ class PianoRollAudioDataset(Dataset):
 
             if audio is None:
                 # audio = torchaudio.load(audio_path, frame_offset=begin, num_frames=num_frames)[0].to(self.device)
-                audio = torch.tensor(soundfile.read(audio_path, start=begin, dtype="float32", frames=num_frames)[0]).to(
-                    self.device
-                )
+                audio = torch.tensor(
+                    soundfile.read(audio_path,
+                                   start=begin,
+                                   dtype="float32",
+                                   frames=num_frames)[0]).to(self.device)
             else:
                 audio = audio[begin:end].to(self.device)
             label = labels.label[step_begin:step_end, :].to(self.device)
@@ -125,7 +132,11 @@ class PianoRollAudioDataset(Dataset):
         else:
             if audio is None:
                 # audio = torchaudio.load(audio_path, frame_offset=begin, num_frames=num_frames)[0].to(self.device)
-                audio = torch.tensor(soundfile.read(audio_path, start=0, dtype="float32", frames=-1)[0]).to(self.device)
+                audio = torch.tensor(
+                    soundfile.read(audio_path,
+                                   start=0,
+                                   dtype="float32",
+                                   frames=-1)[0]).to(self.device)
             else:
                 audio = audio.to(self.device)
             label = labels.label.to(self.device)
@@ -140,7 +151,10 @@ class PianoRollAudioDataset(Dataset):
         return AudioAndLabels(
             path=labels.path,
             audio=audio,
-            annotation=MusicAnnotation(onset=onset, offset=offset, frame=frame, velocity=velocity),
+            annotation=MusicAnnotation(onset=onset,
+                                       offset=offset,
+                                       frame=frame,
+                                       velocity=velocity),
         )
 
     def __len__(self):
@@ -178,9 +192,11 @@ class PianoRollAudioDataset(Dataset):
                     for onset, offset, note, vel in midi:
                         left = int(round(onset * SAMPLE_RATE / HOP_LENGTH))
                         onset_right = min(n_steps, left + HOPS_IN_ONSET)
-                        frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
+                        frame_right = int(
+                            round(offset * SAMPLE_RATE / HOP_LENGTH))
                         frame_right = min(n_steps, frame_right)
-                        offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
+                        offset_right = min(n_steps,
+                                           frame_right + HOPS_IN_OFFSET)
 
                         f = int(note) - MIN_MIDI
                         label[left:onset_right, f] = 3
@@ -191,9 +207,11 @@ class PianoRollAudioDataset(Dataset):
                     for instrument, onset, offset, note, vel in midi:
                         left = int(round(onset * SAMPLE_RATE / HOP_LENGTH))
                         onset_right = min(n_steps, left + HOPS_IN_ONSET)
-                        frame_right = int(round(offset * SAMPLE_RATE / HOP_LENGTH))
+                        frame_right = int(
+                            round(offset * SAMPLE_RATE / HOP_LENGTH))
                         frame_right = min(n_steps, frame_right)
-                        offset_right = min(n_steps, frame_right + HOPS_IN_OFFSET)
+                        offset_right = min(n_steps,
+                                           frame_right + HOPS_IN_OFFSET)
 
                         f = int(note) - MIN_MIDI
                         label[left:onset_right, f] = 3
@@ -204,7 +222,9 @@ class PianoRollAudioDataset(Dataset):
                     raise RuntimeError(f"Unsupported tsv shape {midi.shape}")
             label_dict = dict(path=audio_path, label=label, velocity=velocity)
             torch.save(label_dict, saved_data_path)
-        return Labels(path=audio_path, label=label_dict["label"], velocity=label_dict["velocity"])
+        return Labels(path=audio_path,
+                      label=label_dict["label"],
+                      velocity=label_dict["velocity"])
 
 
 class Slakh(PianoRollAudioDataset):
@@ -237,9 +257,12 @@ class Slakh(PianoRollAudioDataset):
         return ["train", "validation", "test"]
 
     def files(self, group):
-        audio_files = sorted(glob(os.path.join(self.path, group, "*", "mix.wav")))
-        midis = sorted(glob(os.path.join(self.path, group, "*", "all_src.mid")))
-        yamls = sorted(glob(os.path.join(self.path, group, "*", "metadata.yaml")))
+        audio_files = sorted(
+            glob(os.path.join(self.path, group, "*", "mix.flac")))
+        midis = sorted(glob(os.path.join(self.path, group, "*",
+                                         "all_src.mid")))
+        yamls = sorted(
+            glob(os.path.join(self.path, group, "*", "metadata.yaml")))
         files = list(zip(audio_files, midis, yamls))
         if len(files) == 0:
             raise RuntimeError(f"Group {group} is empty")
@@ -247,15 +270,23 @@ class Slakh(PianoRollAudioDataset):
         result = []
         for audio_path, midi_path, yaml_path in files:
             tail, head = os.path.split(midi_path)
-            tsv_filename = os.path.join(tail, head.replace(".mid", "") + f"_{self.instruments}.tsv")
+            tsv_filename = os.path.join(
+                tail,
+                head.replace(".mid", "") + f"_{self.instruments}.tsv")
             if not os.path.exists(tsv_filename):
-                midi_program_to_remove = self._not_rendered_midi_program(yaml_path)
+                midi_program_to_remove = self._not_rendered_midi_program(
+                    yaml_path)
 
-                extract_instruments = get_instruments_from_names(self.instruments)
-                midi = parse_midi(midi_path, extract_instruments, remove_midi_programs=midi_program_to_remove)
-                np.savetxt(
-                    tsv_filename, midi, fmt="%.6f", delimiter="\t", header="instrument\tonset\toffset\tnote\tvelocity"
-                )
+                extract_instruments = get_instruments_from_names(
+                    self.instruments)
+                midi = parse_midi(midi_path,
+                                  extract_instruments,
+                                  remove_midi_programs=midi_program_to_remove)
+                np.savetxt(tsv_filename,
+                           midi,
+                           fmt="%.6f",
+                           delimiter="\t",
+                           header="instrument\tonset\toffset\tnote\tvelocity")
             result.append((audio_path, tsv_filename))
         return result
 
@@ -273,8 +304,12 @@ class Slakh(PianoRollAudioDataset):
 
         for m in not_rendered_midi_programs:
             if num_midi_programs[m] != not_rendered_midi_programs[m]:
-                print([(i, pretty_midi.utilities.program_to_instrument_class(i)) for i in not_rendered_midi_programs])
-                print(f"Not rendered midi programs: {not_rendered_midi_programs}")
+                print([(i,
+                        pretty_midi.utilities.program_to_instrument_class(i))
+                       for i in not_rendered_midi_programs])
+                print(
+                    f"Not rendered midi programs: {not_rendered_midi_programs}"
+                )
                 print(f"Num midi programs: {num_midi_programs}")
                 print(yaml_path)
                 breakpoint()

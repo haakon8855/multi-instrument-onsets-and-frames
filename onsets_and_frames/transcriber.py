@@ -25,6 +25,7 @@ from onsets_and_frames.data_classes import MusicAnnotation
 from onsets_and_frames.dataset import AudioAndLabels
 
 from pre_training.encoder import Encoder
+from onsets_and_frames.predictors import OnsetStack
 
 from .lstm import BiLSTM
 from .unet import UNet
@@ -55,7 +56,10 @@ class ConvStack(nn.Module):
             nn.Dropout(0.25),
         )
         self.fc = nn.Sequential(
-            nn.Linear((output_features // 8) * (input_features // 4), output_features), nn.Dropout(0.5)
+            nn.Linear((output_features // 8) * (input_features // 4), output_features),
+            # for concat approach
+            # nn.Linear(8544, output_features),
+            nn.Dropout(0.5),
         )
 
     def forward(self, mel):
@@ -121,40 +125,59 @@ class OnsetsAndFrames(nn.Module):
         if self.add_unet_model:
             self.unet = UNet(in_channels=1)
 
+        self.freeze_encoder = True
+
         if self.add_encoder_model and self.encoder_model_path is not None:
             self.encoder = Encoder()
             self.encoder.load_state_dict(torch.load(self.encoder_model_path))
             if self.freeze_encoder:
                 self.encoder.eval()
                 self.encoder.requires_grad_(False)
+            else:
+                self.encoder.train()
 
         def sequence_model(input_size: int, output_size: int):
             return BiLSTM(input_size, output_size // 2)
 
         if self.feed_velocity_to_onset:
             self.onset_stack = nn.Sequential(
-                ConvStack(input_features + output_features, model_size),
-                sequence_model(model_size, model_size),
+                nn.Linear(model_size, model_size),
+                nn.BatchNorm1d(model_size),
+                nn.ReLU(),
+                nn.Linear(model_size, model_size),
+                nn.BatchNorm1d(model_size),
+                nn.ReLU(),
+                nn.Linear(model_size, model_size),
+                nn.BatchNorm1d(model_size),
+                nn.ReLU(),
+                nn.Linear(model_size, model_size),
+                nn.BatchNorm1d(model_size),
+                nn.Conv1d(model_size, 640, kernel_size=1),
+                nn.BatchNorm1d(640),
+                nn.ReLU(),
+                nn.Conv1d(640, 640, kernel_size=3, padding=1),
+                nn.BatchNorm1d(640),
+                nn.ReLU(),
                 nn.Linear(model_size, output_features),
                 nn.Sigmoid(),
             )
         else:
-            self.onset_stack = nn.Sequential(
-                ConvStack(input_features, model_size),
-                sequence_model(model_size, model_size),
-                nn.Linear(model_size, output_features),
-                nn.Sigmoid(),
-            )
-
-        self.offset_stack = nn.Sequential(
-            ConvStack(input_features, model_size),
-            sequence_model(model_size, model_size),
-            nn.Linear(model_size, output_features),
-            nn.Sigmoid(),
-        )
-        self.frame_stack = nn.Sequential(
-            ConvStack(input_features, model_size), nn.Linear(model_size, output_features), nn.Sigmoid()
-        )
+            self.onset_stack = OnsetStack(ConvStack, input_features, model_size, output_features, use_encoder=self.add_encoder_model)
+        self.offset_stack = OnsetStack(ConvStack, input_features, model_size, output_features, use_encoder=self.add_encoder_model)
+        self.frame_stack = OnsetStack(ConvStack, input_features, model_size, output_features, use_lstm=False, use_encoder=self.add_encoder_model)
+        # self.combined_stack = OnsetStack(output_features * 3, model_size, output_features)
+        # self.combined_stack = nn.Sequential(
+        #     nn.Linear(output_features * 3, model_size),
+        #     nn.ReLU(),
+        #     nn.Linear(model_size, model_size),
+        #     nn.ReLU(),
+        #     nn.Linear(model_size, model_size),
+        #     nn.ReLU(),
+        #     nn.Linear(model_size, model_size),
+        #     nn.ReLU(),
+        #     nn.Linear(model_size, output_features),
+        #     nn.Sigmoid(),
+        # )
         self.combined_stack = nn.Sequential(
             sequence_model(output_features * 3, model_size), nn.Linear(model_size, output_features), nn.Sigmoid()
         )
@@ -175,8 +198,7 @@ class OnsetsAndFrames(nn.Module):
                 mel = mel[:, :, :prev_length, :]
             mel = mel.squeeze(1)
         if self.add_encoder_model:
-            print(f"Input shape: {mel.shape}")
-            mel = self.encoder(mel)
+            encoding = self.encoder(mel)
         if self.predict_velocity:
             velocity_pred = self.velocity_stack(mel)
         else:
@@ -185,9 +207,16 @@ class OnsetsAndFrames(nn.Module):
             mel_and_velocity = torch.cat([mel, velocity_pred.detach()], dim=-1)
             onset_pred = self.onset_stack(mel_and_velocity)
         else:
-            onset_pred = self.onset_stack(mel)
-        offset_pred = self.offset_stack(mel)
-        activation_pred = self.frame_stack(mel)
+            if self.add_encoder_model:
+                onset_pred = self.onset_stack(mel, encoding)
+            else:
+                onset_pred = self.onset_stack(mel)
+        if self.add_encoder_model:
+            offset_pred = self.offset_stack(mel, encoding)
+            activation_pred = self.frame_stack(mel, encoding)
+        else:
+            offset_pred = self.offset_stack(mel)
+            activation_pred = self.frame_stack(mel)
         combined_pred = torch.cat([onset_pred.detach(), offset_pred.detach(), activation_pred], dim=-1)
         frame_pred = self.combined_stack(combined_pred)
         return onset_pred, offset_pred, activation_pred, frame_pred, velocity_pred

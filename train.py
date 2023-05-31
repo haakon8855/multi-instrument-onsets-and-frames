@@ -20,6 +20,7 @@ from onsets_and_frames.utils import cycle, get_grad_norm, summary
 
 ex = Experiment("train_transcriber")
 
+
 # flake8: noqa: F841
 @ex.config
 def config():
@@ -31,25 +32,27 @@ def config():
     path = "data/slakh2100_flac_16k"
     split = "redux"
     audio = "mix.flac"
-    instrument = "electric-bass"
+    instrument = "all"
     midi_programs = None
-    max_harmony = 2
+    max_harmony = None
     skip_pitch_bend_tracks = True
-    experiment = "p1a"
+    experiment = "e6_more_data"
 
     experiment_name = experiment + "-" if experiment else ""
-    logdir = f"runs/{experiment_name}{instrument}-{audio.replace(os.sep, '-')}-transcriber-" + datetime.now().strftime(
-        "%y%m%d-%H%M%S"
-    )
+    logdir = f"runs/{experiment_name}{instrument}-{audio.replace(os.sep, '-')}-transcriber-" + datetime.now(
+    ).strftime("%y%m%d-%H%M%S")
 
     batch_size = 8
     sequence_length = 327680
     model_complexity = 48
 
-    if torch.cuda.is_available() and torch.cuda.get_device_properties(torch.cuda.current_device()).total_memory < 10e9:
+    if torch.cuda.is_available() and torch.cuda.get_device_properties(
+            torch.cuda.current_device()).total_memory < 10e9:
         batch_size //= 2
         sequence_length //= 2
-        print(f"Reducing batch size to {batch_size} and sequence_length to {sequence_length} to save memory")
+        print(
+            f"Reducing batch size to {batch_size} and sequence_length to {sequence_length} to save memory"
+        )
 
     learning_rate = 0.0006
     learning_rate_decay_steps = 10000
@@ -59,16 +62,18 @@ def config():
 
     auto_clip_gradient = True
 
-    validation_length = 4 * sequence_length
+    validation_length = 1 * sequence_length
     validation_interval = 1000
-    num_validation_files = 40
+    num_validation_files = 50
     create_validation_images = True
 
     predict_velocity = False
     feed_velocity_to_onset = False
     add_unet_model = False
-    min_midi = 36  # MIN_MIDI
-    max_midi = 67  # MAX_MIDI
+    min_midi = 21  # ALL
+    #min_midi = 35  # EL_BASS
+    max_midi = 108  # ALL
+    #max_midi = 67  # EL_BASS 
     n_mels = N_MELS
 
     ex.observers.append(FileStorageObserver.create(logdir))
@@ -162,8 +167,8 @@ def train(
             feed_velocity_to_onset=feed_velocity_to_onset,
             add_unet_model=add_unet_model,
             add_encoder_model=True,
-            encoder_model_path="pre_trainer/checkpoints/sim_siam_encoder_100.pt",
-            freeze_encoder=False,
+            encoder_model_path="pre_training/checkpoints/sim_siam_encoder_100.pt",
+            freeze_encoder=True,
             min_midi=min_midi,
             max_midi=max_midi,
         ).to(device)
@@ -173,10 +178,13 @@ def train(
         model_path = os.path.join(logdir, f"model-{resume_iteration}.pt")
         model = torch.load(model_path)
         optimizer = torch.optim.Adam(model.parameters(), learning_rate)
-        optimizer.load_state_dict(torch.load(os.path.join(logdir, "last-optimizer-state.pt")))
+        optimizer.load_state_dict(
+            torch.load(os.path.join(logdir, "last-optimizer-state.pt")))
 
     summary(model)
-    scheduler = StepLR(optimizer, step_size=learning_rate_decay_steps, gamma=learning_rate_decay_rate)
+    scheduler = StepLR(optimizer,
+                       step_size=learning_rate_decay_steps,
+                       gamma=learning_rate_decay_rate)
 
     grad_history = []
 
@@ -209,13 +217,19 @@ def train(
                     validation_folder = os.path.join(logdir, f"model-{i}")
                 else:
                     validation_folder = None
-                metrics = evaluate(validation_dataset, model, save_folder=validation_folder, save_midi=False)
+                metrics = evaluate(validation_dataset,
+                                   model,
+                                   save_folder=validation_folder,
+                                   save_midi=False)
                 print_metrics(metrics, add_loss=True, file=sys.stderr)
                 print()
                 for key, value in metrics.items():
-                    writer.add_scalar("validation/" + key.replace(" ", "_"), np.mean(value), global_step=i)
+                    writer.add_scalar("validation/" + key.replace(" ", "_"),
+                                      np.mean(value),
+                                      global_step=i)
             model.train()
 
         if i % checkpoint_interval == 0:
             torch.save(model, os.path.join(logdir, f"model-{i}.pt"))
-            torch.save(optimizer.state_dict(), os.path.join(logdir, "last-optimizer-state.pt"))
+            torch.save(optimizer.state_dict(),
+                       os.path.join(logdir, "last-optimizer-state.pt"))

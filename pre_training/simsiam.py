@@ -1,8 +1,10 @@
 """haakoas, matsjno"""
 
+import torch
 from torch import nn
 
 from encoder import Encoder
+from encoder import summary
 
 
 class SimSiam(nn.Module):
@@ -16,16 +18,9 @@ class SimSiam(nn.Module):
         self.output_size = 640 * 229
         self.predictor_hidden_size = 512
         self.encoder = Encoder().to(device)
-        self.predictor = nn.Sequential(
-            nn.Conv2d(1, 32, kernel_size=5, stride=2),
-            nn.Conv2d(32, 64, kernel_size=5, stride=2),
-            nn.Conv2d(64, 128, kernel_size=5, stride=2),
-            nn.Conv2d(128, 256, kernel_size=5, stride=2),
-            nn.ConvTranspose2d(256, 128, kernel_size=(5, 6), stride=2, padding=(0, 0)),
-            nn.ConvTranspose2d(128, 64, kernel_size=(5, 5), stride=2, padding=(0, 0)),
-            nn.ConvTranspose2d(64, 32, kernel_size=(6, 5), stride=2, padding=(0, 0)),
-            nn.ConvTranspose2d(32, 1, kernel_size=(6, 5), stride=2, padding=(0, 0)),
-        ).to(device)
+        self.predictor = nn.Sequential(nn.Linear(768, 512), nn.BatchNorm1d(512), nn.ReLU(), nn.Linear(512, 768)).to(
+            device
+        )
 
     def forward(self, x1, x2):
         z1, z2 = self.encoder(x1), self.encoder(x2)
@@ -34,3 +29,18 @@ class SimSiam(nn.Module):
 
     def save(self, path: str):
         self.encoder.save(path)
+
+
+def main():
+    """
+    Main function for running this python script.
+    """
+    device = torch.device("cuda")
+    simsiam = SimSiam(device)
+    summary(simsiam)
+    output = simsiam(torch.rand(8, 640, 229).to(device), torch.rand(8, 640, 229).to(device))
+    print(output[0].shape, output[2].shape)
+
+
+if __name__ == "__main__":
+    main()

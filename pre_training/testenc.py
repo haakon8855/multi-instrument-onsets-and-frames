@@ -16,6 +16,7 @@ class Encoder(nn.Module):
     """
     Class contaning an encoder for the Simple Siamese network.
     """
+
     def __init__(self):
         super().__init__()
         input_features = 229
@@ -23,8 +24,8 @@ class Encoder(nn.Module):
         output_size = 640 * 5
         self.network = nn.Conv2d(in_channels=1, out_channels=3, kernel_size=1)
         self.resnet = torchvision.models.resnet18()
-        # self.resnet.avgpool = nn.Identity()
-        # self.resnet.fc = nn.Identity()
+        self.resnet.avgpool = nn.Identity()
+        self.resnet.fc = nn.Identity()
 
         self.projector = nn.Sequential(
             nn.Linear(1000, 2048),
@@ -38,11 +39,10 @@ class Encoder(nn.Module):
         )
 
     def forward(self, x):
-        x = x[:,
-              None, :, :]  # Add empty dimension to act as number of channels
+        x = x[:, None, :, :]  # Add empty dimension to act as number of channels
         x = self.network(x)  # Expand number of channels to 3
         x = self.resnet(x)
-        x = self.projector(x)
+        # x = self.projector(x)
         return x
 
     def save(self, path: str):
@@ -100,7 +100,7 @@ def main():
     Main function for running this python script.
     """
     # device = torch.device("cuda")
-    encoder = Encoder()  #.to(device)
+    encoder = Encoder()  # .to(device)
     summary(encoder)
     print(encoder(torch.rand(8, 640, 229)).shape)
 
